@@ -1,0 +1,6 @@
+{
+  "name": "BANG",
+  "description": "Dual-mode secure messaging app featuring real-time cloud routing and resilient off-grid BLE/Wi-Fi peer-to-peer mesh networking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,15 @@
+<resources>
+    <string name="app_name">BANG</string>
+    <string name="tagline">Dual-Mode Secure Mesh Messenger</string>
+    <string name="tab_chats">Chats</string>
+    <string name="tab_abc_relay">A-B-C Relay</string>
+    <string name="tab_scan_nfc">Scan &amp; ID</string>
+    <string name="tab_sos">SOS Center</string>
+    <string name="tab_node_id">Identity</string>
+    <string name="mode_cloud">Cloud Online</string>
+    <string name="mode_mesh">Mesh Active</string>
+    <string name="mode_dual">Hybrid Mode</string>
+    <string name="send_message_hint">Type an encrypted message…</string>
+    <string name="emergency_sos_title">Emergency SOS Broadcast</string>
+    <string name="emergency_sos_desc">High-priority mesh broadcast with GPS coords &amp; vitals relayed over all reachable hops</string>
+</resources>

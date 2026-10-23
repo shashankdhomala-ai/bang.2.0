@@ -1,0 +1,816 @@
+package com.example.ui.components
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.model.ChatThread
+import com.example.model.DeliveryStatus
+import com.example.model.MeshPulseStory
+import com.example.model.PredictiveContextMode
+import com.example.model.TransportType
+import com.example.model.UserPresenceMode
+import com.example.ui.BangUiState
+import com.example.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+// -----------------------------------------------------------------------------
+// Cyber-Obsidian Theme Tokens
+// -----------------------------------------------------------------------------
+private val ObsidianBg = Color(0xFF080C14)
+private val CardSurface = Color(0xFF101724)
+private val CardBorder = Color(0xFF1E2A3C)
+private val NeonCyan = Color(0xFF00E5FF)
+private val NeonAmber = Color(0xFFFFB800)
+private val NeonPink = Color(0xFFFF007F)
+private val KineticEmerald = Color(0xFF00FF87)
+private val TextHigh = Color(0xFFF1F5F9)
+private val TextMedium = Color(0xFF94A3B8)
+private val TextLow = Color(0xFF475569)
+
+@Composable
+fun ChatListScreen(
+    uiState: BangUiState,
+    onOpenThread: (String) -> Unit,
+    onOpenContactSync: () -> Unit = {},
+    onOpenStory: (MeshPulseStory) -> Unit = {},
+    onOpenAiAssistant: () -> Unit = {},
+    activeFilter: String = "All",
+    onSelectPredictiveMode: (PredictiveContextMode) -> Unit = {},
+    onTriggerPredictiveAction: (PredictiveContextMode) -> Unit = {},
+    modifier: Modifier = Modifier
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var showContextPicker by remember { mutableStateOf(false) }
+
+    val filteredThreads = remember(uiState.threads, searchQuery, activeFilter) {
+        uiState.threads.filter { thread ->
+            val matchesSearch = searchQuery.isBlank() ||
+                    thread.title.contains(searchQuery, ignoreCase = true) ||
+                    thread.lastMessage.contains(searchQuery, ignoreCase = true)
+            val matchesFilter = when (activeFilter) {
+                "Unread" -> thread.unreadCount > 0
+                "Mesh P2P" -> thread.preferredTransport != TransportType.CLOUD_GRPC
+                "Groups" -> thread.isGroup
+                else -> true
+            }
+            matchesSearch && matchesFilter
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(ObsidianBg)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 0. Top Brand Header: ⚡ BANG and ● Offline Ready • 8 Peers
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = "BANG",
+                        tint = BangElectricKineticLime,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "BANG",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Black,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 22.sp,
+                            color = Color.White
+                        )
+                    )
+                }
+
+                // Pill Badge: ● Offline Ready • 8 Peers
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFF0F1722),
+                    border = BorderStroke(1.dp, Color(0xFF1E2A3A))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(BangStatusOnline)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Offline Ready • 8 Peers",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = BangStatusOnline,
+                                fontSize = 11.5.sp
+                            )
+                        )
+                    }
+                }
+            }
+
+            // 1. Sleek Search Bar (Phone 3: "Search chats, people...")
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp)
+            ) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            text = "Search chats, people...",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
+                            color = TextMedium
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = TextMedium,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear",
+                                    tint = TextMedium,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("search_threads_input"),
+                    shape = RoundedCornerShape(22.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = CardSurface,
+                        unfocusedContainerColor = CardSurface,
+                        focusedBorderColor = BangElectricKineticLime.copy(alpha = 0.7f),
+                        unfocusedBorderColor = CardBorder,
+                        focusedTextColor = TextHigh,
+                        unfocusedTextColor = TextHigh
+                    ),
+                    singleLine = true
+                )
+            }
+
+            // 2. High-Density Pulses Avatar Tray
+            PulsesAvatarTray(
+                stories = uiState.meshStories,
+                userPresenceMode = uiState.userPresenceMode,
+                onStoryClick = onOpenStory,
+                onAddPulseClick = onOpenContactSync
+            )
+
+            // Segmented filter chips: [ Chats | Groups | Nearby ]
+            var selectedSubFilter by remember { mutableStateOf("Chats") }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val chips = listOf("Chats", "Groups", "Nearby")
+                chips.forEach { chip ->
+                    val isSelected = selectedSubFilter == chip
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) BangElectricKineticLime else BangCharcoalSurface,
+                        border = BorderStroke(1.dp, if (isSelected) BangElectricKineticLime else BangCharcoalBorder),
+                        modifier = Modifier
+                            .clickable { selectedSubFilter = chip }
+                            .testTag("chat_filter_$chip")
+                    ) {
+                        Text(
+                            text = chip,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 12.sp,
+                                color = if (isSelected) Color(0xFF070B11) else Color(0xFF94A3B8)
+                            ),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            }
+
+            // 3. Compact AI Support Banner
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 4.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = Color(0xFF0C1522),
+                    border = BorderStroke(0.8.dp, NeonCyan.copy(alpha = 0.35f)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenAiAssistant() }
+                        .testTag("chat_list_ai_assistant_banner")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(NeonCyan.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("⚡", fontSize = 11.sp)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "BANG AI Support Assistant",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.5.sp,
+                                    color = NeonCyan
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "• Offline Engine Ready",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontSize = 9.sp,
+                                    color = KineticEmerald
+                                )
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = NeonCyan,
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+            }
+
+            // 4. Main Chat List (High-Density Cards)
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                items(filteredThreads, key = { it.id }) { thread ->
+                    CompactMeshChatCard(
+                        thread = thread,
+                        latestMessage = uiState.messagesByThread[thread.id]?.lastOrNull(),
+                        onClick = { onOpenThread(thread.id) }
+                    )
+                }
+
+                // Security & E2EE Minimal Footer
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp, bottom = 80.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = null,
+                            tint = KineticEmerald.copy(alpha = 0.7f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = "Curve25519 & Noise-XK E2EE Verified",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 9.5.sp,
+                                color = TextLow
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        // 5. Contextual Action Floating Pill
+        PredictiveActionFloatingPill(
+            currentMode = uiState.predictiveContextMode,
+            showPicker = showContextPicker,
+            onTogglePicker = { showContextPicker = !showContextPicker },
+            onSelectMode = {
+                onSelectPredictiveMode(it)
+                showContextPicker = false
+            },
+            onTriggerAction = { onTriggerPredictiveAction(it) },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 14.dp, bottom = 14.dp)
+        )
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: High-Density Pulses Avatar Tray
+// -----------------------------------------------------------------------------
+@Composable
+private fun PulsesAvatarTray(
+    stories: List<MeshPulseStory>,
+    userPresenceMode: UserPresenceMode,
+    onStoryClick: (MeshPulseStory) -> Unit,
+    onAddPulseClick: () -> Unit
+) {
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .testTag("pulses_avatar_tray"),
+        contentPadding = PaddingValues(horizontal = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // "Your Pulse" Item
+        item {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable { onAddPulseClick() }
+                    .testTag("pulse_item_your_pulse")
+            ) {
+                Box(modifier = Modifier.size(46.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF162030))
+                            .border(1.2.dp, CardBorder, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "YOU",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                color = NeonCyan
+                            )
+                        )
+                    }
+                    // Status Mode Indicator Badge
+                    Box(
+                        modifier = Modifier
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(CardSurface)
+                            .border(0.8.dp, CardBorder, CircleShape)
+                            .align(Alignment.TopStart),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = userPresenceMode.emoji, fontSize = 8.sp)
+                    }
+                    // "+" Pill Badge
+                    Box(
+                        modifier = Modifier
+                            .size(15.dp)
+                            .clip(CircleShape)
+                            .background(NeonCyan)
+                            .border(1.5.dp, ObsidianBg, CircleShape)
+                            .align(Alignment.BottomEnd),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add",
+                            tint = Color.Black,
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Your Pulse",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextHigh
+                    )
+                )
+            }
+        }
+
+        // Contact Pulses (Magenta gradient for cloud stories, Amber for offline mesh)
+        items(stories, key = { it.id }) { story ->
+            val ringBrush = if (story.isLocalMesh) {
+                Brush.sweepGradient(listOf(NeonAmber, Color(0xFFFF6D00), NeonAmber))
+            } else {
+                Brush.sweepGradient(listOf(NeonPink, Color(0xFF9D00FF), NeonPink))
+            }
+
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .clickable { onStoryClick(story) }
+                    .testTag("pulse_item_${story.id}")
+            ) {
+                Box(modifier = Modifier.size(46.dp), contentAlignment = Alignment.Center) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(ringBrush)
+                            .padding(2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(Color(0xFF0C131D)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = story.authorName.take(2).uppercase(),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = if (story.isLocalMesh) NeonAmber else NeonPink
+                                )
+                            )
+                        }
+                    }
+                    if (story.isLocalMesh) {
+                        Box(
+                            modifier = Modifier
+                                .size(9.dp)
+                                .clip(CircleShape)
+                                .background(NeonAmber)
+                                .border(1.dp, ObsidianBg, CircleShape)
+                                .align(Alignment.BottomEnd)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = story.authorName.split(" ").firstOrNull() ?: story.authorName,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 9.5.sp,
+                        color = TextMedium
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: Compact High-Density Chat Card (~68dp height)
+// -----------------------------------------------------------------------------
+@Composable
+private fun CompactMeshChatCard(
+    thread: ChatThread,
+    latestMessage: com.example.model.ChatMessage?,
+    onClick: () -> Unit
+) {
+    val isUnread = thread.unreadCount > 0
+    val isCloud = thread.preferredTransport == TransportType.CLOUD_GRPC
+    val ringColor = if (isCloud) NeonCyan else NeonAmber
+    val formattedTime = formatTimestamp(thread.timestamp)
+
+    Card(
+        shape = RoundedCornerShape(10.dp),
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
+        border = BorderStroke(0.9.dp, if (isUnread) NeonCyan.copy(alpha = 0.45f) else CardBorder),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .testTag("thread_card_${thread.id}")
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Avatar with Neon Ring + Live Status Dot
+            Box(modifier = Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF0B121C))
+                        .border(1.5.dp, ringColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (thread.isGroup) {
+                        Icon(
+                            imageVector = Icons.Default.Group,
+                            contentDescription = null,
+                            tint = ringColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    } else {
+                        val initials = thread.title.split(" ")
+                            .mapNotNull { it.firstOrNull()?.toString() }
+                            .take(2)
+                            .joinToString("")
+                        Text(
+                            text = initials.ifEmpty { "P" },
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = ringColor
+                            )
+                        )
+                    }
+                }
+                // Status dot at bottom right
+                Box(
+                    modifier = Modifier
+                        .size(9.dp)
+                        .clip(CircleShape)
+                        .background(if (isCloud) NeonCyan else KineticEmerald)
+                        .border(1.2.dp, CardSurface, CircleShape)
+                        .align(Alignment.BottomEnd)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            // Contact Info, Snippet, Delivery State
+            Column(modifier = Modifier.weight(1f)) {
+                // Line 1: Name + Verified Node Dot + Timestamp
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = thread.title,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = if (isUnread) FontWeight.Bold else FontWeight.SemiBold,
+                                fontSize = 13.5.sp,
+                                color = TextHigh
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(KineticEmerald)
+                        )
+                    }
+                    Text(
+                        text = formattedTime,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Normal,
+                            color = if (isUnread) NeonCyan else TextLow
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(3.dp))
+
+                // Line 2: Delivery Checkmark + Snippet + Unread Badge / Route Pill
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (latestMessage?.isFromMe == true) {
+                            val (tickIcon, tickColor) = when (latestMessage.deliveryStatus) {
+                                DeliveryStatus.READ -> Pair(Icons.Default.DoneAll, NeonCyan)
+                                DeliveryStatus.DELIVERED -> Pair(Icons.Default.DoneAll, TextMedium)
+                                else -> Pair(Icons.Default.Check, TextLow)
+                            }
+                            Icon(
+                                imageVector = tickIcon,
+                                contentDescription = null,
+                                tint = tickColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                        }
+                        Text(
+                            text = thread.lastMessage,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 11.5.sp,
+                                fontWeight = if (isUnread) FontWeight.Medium else FontWeight.Normal,
+                                color = if (isUnread) TextHigh else TextMedium
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    if (isUnread) {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(NeonCyan)
+                                .padding(horizontal = 6.dp, vertical = 1.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "${thread.unreadCount}",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 9.sp,
+                                    color = Color.Black
+                                )
+                            )
+                        }
+                    } else {
+                        // Discrete route tag
+                        Text(
+                            text = if (isCloud) "🌐 Cloud" else if (thread.involvesStrangerRelay) "⚡ 2 Hops" else "📶 1 Hop",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 8.5.sp,
+                                color = if (isCloud) NeonCyan.copy(alpha = 0.7f) else NeonAmber.copy(alpha = 0.8f)
+                            )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Component: Floating Predictive Action Pill
+// -----------------------------------------------------------------------------
+@Composable
+private fun PredictiveActionFloatingPill(
+    currentMode: PredictiveContextMode,
+    showPicker: Boolean,
+    onTogglePicker: () -> Unit,
+    onSelectMode: (PredictiveContextMode) -> Unit,
+    onTriggerAction: (PredictiveContextMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.End) {
+        AnimatedVisibility(visible = showPicker, enter = fadeIn(), exit = fadeOut()) {
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1728)),
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier
+                    .padding(bottom = 6.dp)
+                    .shadow(10.dp)
+            ) {
+                Column(modifier = Modifier.padding(6.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    PredictiveContextMode.entries.forEach { mode ->
+                        val isSel = currentMode == mode
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isSel) NeonCyan.copy(alpha = 0.15f) else Color.Transparent,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSelectMode(mode) }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = mode.iconEmoji, fontSize = 12.sp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = mode.actionLabel,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 9.5.sp,
+                                        color = if (isSel) NeonCyan else TextHigh
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Surface(
+                shape = CircleShape,
+                color = CardSurface,
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable { onTogglePicker() },
+                shadowElevation = 3.dp
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text("⚡", fontSize = 11.sp)
+                }
+            }
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Surface(
+                onClick = { onTriggerAction(currentMode) },
+                shape = RoundedCornerShape(16.dp),
+                color = NeonCyan,
+                shadowElevation = 6.dp,
+                modifier = Modifier.testTag("btn_predictive_action_fab")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = currentMode.iconEmoji, fontSize = 14.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = currentMode.actionLabel,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Black,
+                            color = ObsidianBg,
+                            fontSize = 10.5.sp
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatTimestamp(millis: Long): String {
+    return SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(millis))
+}
